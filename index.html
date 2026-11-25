@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>1000 kVA Amorphous Smart Transformer - 3D Digital Twin</title>
+  <style>
+    :root {
+      --bg-color: #0b1120;
+      --panel-bg: rgba(15, 23, 42, 0.84);
+      --panel-border: rgba(148, 163, 184, 0.22);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --status-ok: #10b981;
+      --status-warn: #f59e0b;
+      --status-crit: #ef4444;
+    }
+
+    body.light-theme {
+      --bg-color: #eef2f6;
+      --panel-bg: rgba(255, 255, 255, 0.88);
+      --panel-border: rgba(15, 23, 42, 0.14);
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --accent: #0284c7;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-color);
+      color: var(--text-main);
+      transition: background 0.25s ease;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Top-Left Telemetry Status Card */
+    .hud-card {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 14px;
+      padding: 14px 18px;
+      min-width: 265px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+      z-index: 10;
+    }
+
+    .hud-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .hud-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--status-ok);
+      box-shadow: 0 0 10px var(--status-ok);
+    }
+
+    .status-badge {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      color: var(--status-ok);
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .hud-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--panel-border);
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .metric-value {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Top-Right Toggle Button & Control Panel */
+    .toggle-btn {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      background: var(--panel-bg);
+      color: var(--text-main);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 20;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    }
+
+    .toggle-btn:hover {
+      border-color: var(--accent);
+    }
+
+    .control-panel {
+      position: fixed;
+      top: 58px;
+      right: 16px;
+      width: 280px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+      z-index: 15;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .control-panel.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-8px);
+    }
+
+    .panel-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slider-group {
+      margin-bottom: 14px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .slider-header span:last-child {
+      font-weight: 700;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .slider-scale {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .action-btn {
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--text-main);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .action-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .hint-text {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <!-- Telemetry Status HUD -->
+  <div class="hud-card">
+    <div class="hud-header">
+      <div class="hud-title">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="unit-title">TR-03 • 1000 kVA</span>
+      </div>
+      <span class="status-badge" id="status-badge">NORMAL</span>
+    </div>
+    <div class="hud-subtitle">Amorphous Core • Hermetically Sealed</div>
+    <div class="metrics-grid">
+      <div>
+        <div class="metric-label">Top Oil Temp</div>
+        <div class="metric-value" id="hud-top-oil">52.0°C</div>
+      </div>
+      <div>
+        <div class="metric-label">Cooling Fins</div>
+        <div class="metric-value" id="hud-fin-temp">46.0°C</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Collapsible Controls -->
+  <button class="toggle-btn" id="toggle-controls-btn">Controls</button>
+
+  <div class="control-panel" id="control-panel">
+    <div class="panel-section-title">
+      <span>Thermal Simulation</span>
+      <button class="action-btn" id="theme-btn" style="padding: 3px 8px; font-size: 11px;">Theme: Dark</button>
+    </div>
+
+    <div class="slider-group">
+      <div class="slider-header">
+        <span>Top Oil Temp (Upper Tank)</span>
+        <span id="val-top-oil">52.0°C</span>
+      </div>
+      <input type="range" id="slider-top-oil" min="25" max="105" step="0.5" value="52" />
+      <div class="slider-scale">
+        <span>25°C</span>
+        <span>65°C</span>
+        <span>85°C</span>
+        <span>105°C</span>
+      </div>
+    </div>
+
+    <div class="slider-group">
+      <div class="slider-header">
+        <span>Cooling Fin Temp</span>
+        <span id="val-fin-temp">46.0°C</span>
+      </div>
+      <input type="range" id="slider-fin-temp" min="25" max="95" step="0.5" value="46" />
+      <div class="slider-scale">
+        <span>25°C</span>
+        <span>60°C</span>
+        <span>75°C</span>
+        <span>95°C</span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="action-btn" id="reset-view-btn">Reset View</button>
+      <button class="action-btn" id="auto-rotate-btn">Auto: ON</button>
+    </div>
+
+    <div class="hint-text">
+      Drag to rotate • Scroll to zoom • Right-drag to pan
+    </div>
+  </div>
+
+  <!-- Three.js r128 & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
+    // Parse URL Parameters (e.g., ?unit=TR-03&topOil=64&fin=55&theme=light)
+    const params = new URLSearchParams(window.location.search);
+    const unitName = params.get("unit") || "TR-03";
+    const initTopOil = parseFloat(params.get("topOil")) || 52.0;
+    const initFinTemp = parseFloat(params.get("fin")) || 46.0;
+    const initTheme = params.get("theme") || "dark";
+
+    document.getElementById("unit-title").textContent = `${unitName} • 1000 kVA`;
+
+    // Scene, Camera & Renderer Setup
+    const container = document.getElementById("canvas-container");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1120);
+
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(4.6, 3.3, 5.4);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.target.set(0, 1.45, 0);
+    controls.minDistance = 2.5;
+    controls.maxDistance = 14;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.8;
+
+    // Studio Lighting
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.85);
+    hemiLight.position.set(0, 10, 0);
+    scene.add(hemiLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.15);
+    dirLight.position.set(6, 9, 7);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near = 1;
+    dirLight.shadow.camera.far = 25;
+    const d = 4.5;
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
+    dirLight.shadow.bias = -0.0005;
+    scene.add(dirLight);
+
+    const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.45);
+    rimLight.position.set(-6, 4, -6);
+    scene.add(rimLight);
+
+    // Subtle Floor Shadow Receiver & Grid
+    const gridHelper = new THREE.GridHelper(12, 24, 0x334155, 0x1e293b);
+    gridHelper.position.y = 0;
+    scene.add(gridHelper);
+
+    const shadowPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(12, 12),
+      new THREE.ShadowMaterial({ opacity: 0.28 })
+    );
+    shadowPlane.rotation.x = -Math.PI / 2;
+    shadowPlane.receiveShadow = true;
+    scene.add(shadowPlane);
+
+    // Materials (Cream/Beige-Grey Industrial Enamel + Porcelain + Metal)
+    const tankPaintMat = new THREE.MeshStandardMaterial({
+      color: 0xd8d7cd,
+      roughness: 0.42,
+      metalness: 0.18,
+      emissive: new THREE.Color(0x000000),
+      emissiveIntensity: 0
+    });
+
+    const finPaintMat = new THREE.MeshStandardMaterial({
+      color: 0xd5d4ca,
+      roughness: 0.45,
+      metalness: 0.16,
+      emissive: new THREE.Color(0x000000),
+      emissiveIntensity: 0
+    });
+
+    const baseSteelMat = new THREE.MeshStandardMaterial({
+      color: 0xc5c5bc,
+      roughness: 0.5,
+      metalness: 0.35
+    });
+
+    const porcelainMat = new THREE.MeshPhysicalMaterial({
+      color: 0x431812,
+      roughness: 0.16,
+      metalness: 0.05,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.12
+    });
+
+    const silverMetalMat = new THREE.MeshStandardMaterial({
+      color: 0xdbe0e6,
+      roughness: 0.25,
+      metalness: 0.85
+    });
+
+    const brassMat = new THREE.MeshStandardMaterial({
+      color: 0xc9a24b,
+      roughness: 0.32,
+      metalness: 0.8
+    });
+
+    // Helper: Create Canvas Nameplate Texture
+    function createPlateTexture(bgColor, borderColor, lines) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = 256;
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 10;
+      ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      lines.forEach(item => {
+        ctx.font = item.font;
+        ctx.fillStyle = item.color;
+        ctx.fillText(item.text, canvas.width / 2, item.y);
+      });
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    // Build 1000 kVA Hermetically Sealed Corrugated-Tank Transformer
+    const transformer = new THREE.Group();
+    scene.add(transformer);
+
+    function addMesh(geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, z);
+      m.rotation.set(rx, ry, rz);
+      m.castShadow = true;
+      m.receiveShadow = true;
+      transformer.add(m);
+      return m;
+    }
+
+    // 1. C-Channel Steel Base Skids (2 runners along Z)
+    [-0.95, 0.95].forEach(xPos => {
+      addMesh(new THREE.BoxGeometry(0.18, 0.03, 1.85), baseSteelMat, xPos, 0.015, 0);
+      addMesh(new THREE.BoxGeometry(0.18, 0.03, 1.85), baseSteelMat, xPos, 0.165, 0);
+      addMesh(new THREE.BoxGeometry(0.03, 0.18, 1.85), baseSteelMat, xPos - 0.075, 0.09, 0);
+    });
+
+    // 2. Recessed Lower Plinth & Drain Valve
+    addMesh(new THREE.BoxGeometry(2.55, 0.34, 1.38), tankPaintMat, 0, 0.35, 0);
+
+    // Bottom-Left Oil Drain Valve
+    addMesh(new THREE.CylinderGeometry(0.04, 0.04, 0.22, 16), brassMat, -1.36, 0.30, 0.42, 0, 0, Math.PI / 2);
+    addMesh(new THREE.TorusGeometry(0.065, 0.014, 10, 20), brassMat, -1.48, 0.30, 0.42, 0, Math.PI / 2, 0);
+
+    // 3. Main Tank Core + Upper Rim + Bolted Top Cover
+    const tankW = 2.72;
+    const tankH = 1.62;
+    const tankD = 1.50;
+    const tankCenterY = 0.52 + tankH / 2;
+
+    addMesh(new THREE.BoxGeometry(tankW, tankH, tankD), tankPaintMat, 0, tankCenterY, 0);
+
+    // Top Flange & Cover Plate
+    const coverY = 0.52 + tankH + 0.045;
+    addMesh(new THREE.BoxGeometry(2.96, 0.05, 1.74), tankPaintMat, 0, coverY - 0.025, 0);
+    addMesh(new THREE.BoxGeometry(2.90, 0.04, 1.68), tankPaintMat, 0, coverY + 0.02, 0);
+
+    // Perimeter Bolts along Top Flange
+    const boltGeo = new THREE.CylinderGeometry(0.014, 0.014, 0.03, 6);
+    for (let bx = -1.38; bx <= 1.38; bx += 0.172) {
+      addMesh(boltGeo, silverMetalMat, bx, coverY + 0.045, 0.81);
+      addMesh(boltGeo, silverMetalMat, bx, coverY + 0.045, -0.81);
+    }
+    for (let bz = -0.72; bz <= 0.72; bz += 0.18) {
+      addMesh(boltGeo, silverMetalMat, 1.42, coverY + 0.045, bz);
+      addMesh(boltGeo, silverMetalMat, -1.42, coverY + 0.045, bz);
+    }
+
+    // 4 Lifting Lugs on Top Cover
+    [
+      [-1.18, 0.66], [1.18, 0.66],
+      [-1.18, -0.66], [1.18, -0.66]
+    ].forEach(([lx, lz]) => {
+      addMesh(new THREE.TorusGeometry(0.065, 0.018, 10, 20, Math.PI), tankPaintMat, lx, coverY + 0.04, lz);
+    });
+
+    // 4. Dense Corrugated Cooling Fins (All 4 Sides) + Corner Protector Columns
+    const finH = 1.52;
+    const finY = tankCenterY + 0.01;
+    const finDepth = 0.15;
+    const finThick = 0.018;
+
+    // Front & Back Corrugated Fins (22 fins per side with center divider bar)
+    const frontFinGeo = new THREE.BoxGeometry(finThick, finH, finDepth);
+    for (let i = 0; i < 22; i++) {
+      const fx = -1.16 + i * (2.32 / 21);
+      if (Math.abs(fx) < 0.03) continue;
+      addMesh(frontFinGeo, finPaintMat, fx, finY, tankD / 2 + finDepth / 2);
+      addMesh(frontFinGeo, finPaintMat, fx, finY, -(tankD / 2 + finDepth / 2));
+    }
+    // Center vertical divider & horizontal tie bars on front/back fins
+    addMesh(new THREE.BoxGeometry(0.045, finH + 0.02, finDepth + 0.015), finPaintMat, 0, finY, tankD / 2 + finDepth / 2);
+    addMesh(new THREE.BoxGeometry(0.045, finH + 0.02, finDepth + 0.015), finPaintMat, 0, finY, -(tankD / 2 + finDepth / 2));
+    addMesh(new THREE.BoxGeometry(2.42, 0.025, finDepth + 0.02), finPaintMat, 0, finY + finH / 2, tankD / 2 + finDepth / 2);
+    addMesh(new THREE.BoxGeometry(2.42, 0.025, finDepth + 0.02), finPaintMat, 0, finY - finH / 2, tankD / 2 + finDepth / 2);
+
+    // Left & Right Corrugated Fins (12 fins per side)
+    const sideFinGeo = new THREE.BoxGeometry(finDepth, finH, finThick);
+    for (let j = 0; j < 12; j++) {
+      const fz = -0.56 + j * (1.12 / 11);
+      addMesh(sideFinGeo, finPaintMat, tankW / 2 + finDepth / 2, finY, fz);
+      addMesh(sideFinGeo, finPaintMat, -(tankW / 2 + finDepth / 2), finY, fz);
+    }
+
+    // 4 Corner Flat Protector Panels (matching the signature box-corner look)
+    const cornerPos = [
+      [-1.33, 0.78], [1.33, 0.78],
+      [-1.33, -0.78], [1.33, -0.78]
+    ];
+    cornerPos.forEach(([cx, cz]) => {
+      addMesh(new THREE.BoxGeometry(0.26, finH + 0.03, 0.24), finPaintMat, cx, finY, cz);
+    });
+
+    // 5. Front Nameplates ("1000", "TR-03 / SMART TRANSFORMER", "AMORPHOUS")
+    const frontZ = tankD / 2 + finDepth + 0.022;
+
+    const plate1000Tex = createPlateTexture("#e5e7eb", "#334155", [
+      { text: "1000", font: "bold 148px Arial, sans-serif", color: "#0f172a", y: 134 }
+    ]);
+    addMesh(
+      new THREE.BoxGeometry(0.46, 0.23, 0.025),
+      new THREE.MeshStandardMaterial({ map: plate1000Tex, roughness: 0.35 }),
+      0, finY + 0.30, frontZ
+    );
+
+    const plateBrandTex = createPlateTexture("#f8fafc", "#64748b", [
+      { text: unitName, font: "bold 96px Arial, sans-serif", color: "#0284c7", y: 98 },
+      { text: "1000 kVA SMART DISTRIBUTION", font: "bold 28px Arial, sans-serif", color: "#1e293b", y: 186 }
+    ]);
+    addMesh(
+      new THREE.BoxGeometry(0.66, 0.32, 0.025),
+      new THREE.MeshStandardMaterial({ map: plateBrandTex, roughness: 0.35 }),
+      0, finY + 0.01, frontZ
+    );
+
+    const plateAmorphousTex = createPlateTexture("#d1d5db", "#475569", [
+      { text: "AMORPHOUS", font: "bold 62px Georgia, serif", color: "#111827", y: 132 }
+    ]);
+    addMesh(
+      new THREE.BoxGeometry(0.86, 0.19, 0.025),
+      new THREE.MeshStandardMaterial({ map: plateAmorphousTex, roughness: 0.35 }),
+      0, finY - 0.27, frontZ
+    );
+
+    // 6. Top Accessories: 3 HV Porcelain Bushings (Front Row)
+    const topDeckY = coverY + 0.04;
+    [-0.68, 0, 0.68].forEach(bx => {
+      const bz = 0.34;
+      // Mounting flange
+      addMesh(new THREE.CylinderGeometry(0.11, 0.12, 0.06, 20), tankPaintMat, bx, topDeckY + 0.03, bz);
+      // Central porcelain core
+      addMesh(new THREE.CylinderGeometry(0.065, 0.075, 0.56, 20), porcelainMat, bx, topDeckY + 0.34, bz);
+      // 4 Tapered rain sheds
+      for (let s = 0; s < 4; s++) {
+        const sy = topDeckY + 0.16 + s * 0.115;
+        addMesh(new THREE.CylinderGeometry(0.075, 0.145, 0.055, 24), porcelainMat, bx, sy, bz);
+      }
+      // Top brass/silver terminal cap & clamp
+      addMesh(new THREE.CylinderGeometry(0.045, 0.055, 0.09, 16), silverMetalMat, bx, topDeckY + 0.66, bz);
+      addMesh(new THREE.BoxGeometry(0.08, 0.11, 0.06), silverMetalMat, bx, topDeckY + 0.74, bz);
+    });
+
+    // 7. 4 LV Bushings with Multi-Hole Busbar Flag Terminals (Back Row)
+    [-0.84, -0.28, 0.28, 0.84].forEach(lx => {
+      const lz = -0.34;
+      addMesh(new THREE.CylinderGeometry(0.08, 0.09, 0.05, 18), tankPaintMat, lx, topDeckY + 0.025, lz);
+      addMesh(new THREE.CylinderGeometry(0.05, 0.06, 0.28, 18), porcelainMat, lx, topDeckY + 0.19, lz);
+      // 2 Sheds
+      addMesh(new THREE.CylinderGeometry(0.055, 0.095, 0.04, 20), porcelainMat, lx, topDeckY + 0.14, lz);
+      addMesh(new THREE.CylinderGeometry(0.055, 0.095, 0.04, 20), porcelainMat, lx, topDeckY + 0.23, lz);
+      // Tall silver busbar flag terminal
+      addMesh(new THREE.CylinderGeometry(0.032, 0.032, 0.12, 14), silverMetalMat, lx, topDeckY + 0.38, lz);
+      addMesh(new THREE.BoxGeometry(0.025, 0.34, 0.14), silverMetalMat, lx, topDeckY + 0.56, lz);
+    });
+
+    // 8. Left Dial Thermometer & Right Oil-Level Standpipe
+    // Dial Thermometer (Left Front)
+    addMesh(new THREE.CylinderGeometry(0.022, 0.022, 0.16, 12), silverMetalMat, -1.08, topDeckY + 0.08, 0.42);
+    addMesh(new THREE.CylinderGeometry(0.09, 0.09, 0.04, 24), silverMetalMat, -1.08, topDeckY + 0.21, 0.42, Math.PI / 2, 0, 0);
+
+    // Oil-Level Indicator Standpipe (Right)
+    addMesh(new THREE.CylinderGeometry(0.042, 0.048, 0.62, 18), tankPaintMat, 1.12, topDeckY + 0.31, 0.15);
+    addMesh(new THREE.CylinderGeometry(0.052, 0.052, 0.05, 18), silverMetalMat, 1.12, topDeckY + 0.64, 0.15);
+
+    // Thermal Telemetry Update Logic
+    const sliderTopOil = document.getElementById("slider-top-oil");
+    const sliderFinTemp = document.getElementById("slider-fin-temp");
+    const valTopOil = document.getElementById("val-top-oil");
+    const valFinTemp = document.getElementById("val-fin-temp");
+    const hudTopOil = document.getElementById("hud-top-oil");
+    const hudFinTemp = document.getElementById("hud-fin-temp");
+    const statusBadge = document.getElementById("status-badge");
+    const statusDot = document.getElementById("status-dot");
+
+    function computeThermalGlow(temp, warnT, critT) {
+      if (temp <= warnT) return { color: 0x000000, intensity: 0 };
+      const ratio = Math.min((temp - warnT) / (critT - warnT), 1);
+      const col = new THREE.Color().setHSL(0.08 * (1 - ratio), 1.0, 0.48);
+      return { color: col, intensity: 0.15 + ratio * 0.55 };
+    }
+
+    window.updateTransformerTelemetry = function(topOilTemp, finTemp) {
+      const tOil = Number(topOilTemp);
+      const tFin = Number(finTemp);
+
+      sliderTopOil.value = tOil;
+      sliderFinTemp.value = tFin;
+
+      valTopOil.textContent = `${tOil.toFixed(1)}°C`;
+      valFinTemp.textContent = `${tFin.toFixed(1)}°C`;
+      hudTopOil.textContent = `${tOil.toFixed(1)}°C`;
+      hudFinTemp.textContent = `${tFin.toFixed(1)}°C`;
+
+      // Update 3D Tank & Fin Emissive Heat Glow
+      const oilGlow = computeThermalGlow(tOil, 65, 95);
+      tankPaintMat.emissive.set(oilGlow.color);
+      tankPaintMat.emissiveIntensity = oilGlow.intensity;
+
+      const finGlow = computeThermalGlow(tFin, 58, 85);
+      finPaintMat.emissive.set(finGlow.color);
+      finPaintMat.emissiveIntensity = finGlow.intensity;
+
+      // Update Status Badge
+      if (tOil >= 85 || tFin >= 75) {
+        statusBadge.textContent = "CRITICAL";
+        statusBadge.style.color = "#ef4444";
+        statusBadge.style.background = "rgba(239, 68, 68, 0.16)";
+        statusBadge.style.borderColor = "rgba(239, 68, 68, 0.4)";
+        statusDot.style.background = "#ef4444";
+        statusDot.style.boxShadow = "0 0 10px #ef4444";
+      } else if (tOil >= 65 || tFin >= 60) {
+        statusBadge.textContent = "WARNING";
+        statusBadge.style.color = "#f59e0b";
+        statusBadge.style.background = "rgba(245, 158, 11, 0.16)";
+        statusBadge.style.borderColor = "rgba(245, 158, 11, 0.4)";
+        statusDot.style.background = "#f59e0b";
+        statusDot.style.boxShadow = "0 0 10px #f59e0b";
+      } else {
+        statusBadge.textContent = "NORMAL";
+        statusBadge.style.color = "#10b981";
+        statusBadge.style.background = "rgba(16, 185, 129, 0.14)";
+        statusBadge.style.borderColor = "rgba(16, 185, 129, 0.35)";
+        statusDot.style.background = "#10b981";
+        statusDot.style.boxShadow = "0 0 10px #10b981";
+      }
+    };
+
+    sliderTopOil.addEventListener("input", () => {
+      window.updateTransformerTelemetry(sliderTopOil.value, sliderFinTemp.value);
+    });
+
+    sliderFinTemp.addEventListener("input", () => {
+      window.updateTransformerTelemetry(sliderTopOil.value, sliderFinTemp.value);
+    });
+
+    // Listen to postMessage from parent Dashboard if embedded in iframe
+    window.addEventListener("message", (event) => {
+      if (event.data && typeof event.data.topOilTemp === "number") {
+        window.updateTransformerTelemetry(
+          event.data.topOilTemp,
+          event.data.finTemp ?? sliderFinTemp.value
+        );
+      }
+    });
+
+    // UI Controls
+    const controlPanel = document.getElementById("control-panel");
+    document.getElementById("toggle-controls-btn").addEventListener("click", () => {
+      controlPanel.classList.toggle("hidden");
+    });
+
+    document.getElementById("reset-view-btn").addEventListener("click", () => {
+      camera.position.set(4.6, 3.3, 5.4);
+      controls.target.set(0, 1.45, 0);
+      controls.update();
+    });
+
+    const autoRotateBtn = document.getElementById("auto-rotate-btn");
+    autoRotateBtn.addEventListener("click", () => {
+      controls.autoRotate = !controls.autoRotate;
+      autoRotateBtn.textContent = controls.autoRotate ? "Auto: ON" : "Auto: OFF";
+    });
+
+    const themeBtn = document.getElementById("theme-btn");
+    function setTheme(mode) {
+      if (mode === "light") {
+        document.body.classList.add("light-theme");
+        scene.background = new THREE.Color(0xeef2f6);
+        themeBtn.textContent = "Theme: Light";
+      } else {
+        document.body.classList.remove("light-theme");
+        scene.background = new THREE.Color(0x0b1120);
+        themeBtn.textContent = "Theme: Dark";
+      }
+    }
+
+    themeBtn.addEventListener("click", () => {
+      const isLight = document.body.classList.contains("light-theme");
+      setTheme(isLight ? "dark" : "light");
+    });
+
+    // Initialize state
+    setTheme(initTheme);
+    window.updateTransformerTelemetry(initTopOil, initFinTemp);
+
+    // Resize & Render Loop
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
