@@ -7,8 +7,8 @@
   <style>
     :root {
       --bg-color: #0b1120;
-      --panel-bg: rgba(15, 23, 42, 0.84);
-      --panel-border: rgba(148, 163, 184, 0.22);
+      --panel-bg: rgba(15, 23, 42, 0.86);
+      --panel-border: rgba(148, 163, 184, 0.24);
       --text-main: #f1f5f9;
       --text-muted: #94a3b8;
       --accent: #38bdf8;
@@ -19,8 +19,8 @@
 
     body.light-theme {
       --bg-color: #eef2f6;
-      --panel-bg: rgba(255, 255, 255, 0.88);
-      --panel-border: rgba(15, 23, 42, 0.14);
+      --panel-bg: rgba(255, 255, 255, 0.90);
+      --panel-border: rgba(15, 23, 42, 0.16);
       --text-main: #0f172a;
       --text-muted: #475569;
       --accent: #0284c7;
@@ -46,6 +46,65 @@
       width: 100%;
       height: 100%;
       display: block;
+    }
+
+    /* 3D Callout Overlay Layer */
+    #callout-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 8;
+      overflow: hidden;
+    }
+
+    #callout-layer.hidden {
+      display: none;
+    }
+
+    #callout-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .callout-tag {
+      position: absolute;
+      transform: translateY(-50%);
+      background: var(--panel-bg);
+      border: 1.5px solid var(--accent);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 10px;
+      padding: 7px 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
+      white-space: nowrap;
+      transition: border-color 0.2s ease;
+    }
+
+    .callout-tag-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .callout-tag-value {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-main);
+      font-variant-numeric: tabular-nums;
+      margin-top: 1px;
+    }
+
+    .callout-tag-sub {
+      font-size: 10px;
+      color: var(--accent);
+      font-weight: 600;
     }
 
     /* Top-Left Telemetry Status Card */
@@ -152,7 +211,7 @@
       position: fixed;
       top: 58px;
       right: 16px;
-      width: 280px;
+      width: 285px;
       background: var(--panel-bg);
       border: 1px solid var(--panel-border);
       backdrop-filter: blur(12px);
@@ -215,8 +274,8 @@
 
     .btn-row {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
       margin-top: 10px;
     }
 
@@ -225,8 +284,8 @@
       color: var(--text-main);
       border: 1px solid var(--panel-border);
       border-radius: 8px;
-      padding: 7px 10px;
-      font-size: 12px;
+      padding: 7px 6px;
+      font-size: 11px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s ease;
@@ -248,6 +307,33 @@
 </head>
 <body>
   <div id="canvas-container"></div>
+
+  <!-- 3D Sensor Callout Overlay -->
+  <div id="callout-layer">
+    <svg id="callout-svg">
+      <!-- Top Oil PT100 Pointer -->
+      <circle id="dot-top-oil-ring" r="8" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.65"></circle>
+      <circle id="dot-top-oil" r="4" fill="#38bdf8"></circle>
+      <polyline id="line-top-oil" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+
+      <!-- Cooling Fins Pointer -->
+      <circle id="dot-fin-ring" r="8" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.65"></circle>
+      <circle id="dot-fin" r="4" fill="#38bdf8"></circle>
+      <polyline id="line-fin" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+    </svg>
+
+    <div class="callout-tag" id="tag-top-oil">
+      <div class="callout-tag-title">PT100 SENSOR • TOP OIL</div>
+      <div class="callout-tag-value" id="callout-val-top-oil">52.0°C</div>
+      <div class="callout-tag-sub">Thermowell Probe (Upper Tank)</div>
+    </div>
+
+    <div class="callout-tag" id="tag-fin">
+      <div class="callout-tag-title">PT100 PROBE • COOLING FINS</div>
+      <div class="callout-tag-value" id="callout-val-fin">46.0°C</div>
+      <div class="callout-tag-sub">Radiator Fin Surface</div>
+    </div>
+  </div>
 
   <!-- Telemetry Status HUD -->
   <div class="hud-card">
@@ -282,7 +368,7 @@
 
     <div class="slider-group">
       <div class="slider-header">
-        <span>Top Oil Temp (Upper Tank)</span>
+        <span>Top Oil Temp (PT100)</span>
         <span id="val-top-oil">52.0°C</span>
       </div>
       <input type="range" id="slider-top-oil" min="25" max="105" step="0.5" value="52" />
@@ -310,7 +396,8 @@
 
     <div class="btn-row">
       <button class="action-btn" id="reset-view-btn">Reset View</button>
-      <button class="action-btn" id="auto-rotate-btn">Auto: ON</button>
+      <button class="action-btn" id="auto-rotate-btn">Auto: OFF</button>
+      <button class="action-btn" id="labels-btn">Labels: ON</button>
     </div>
 
     <div class="hint-text">
@@ -323,7 +410,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
   <script>
-    // Parse URL Parameters (e.g., ?unit=TR-03&topOil=64&fin=55&theme=light)
+    // Parse URL Parameters (e.g., ?unit=TR-03&topOil=64&fin=55&theme=dark)
     const params = new URLSearchParams(window.location.search);
     const unitName = params.get("unit") || "TR-03";
     const initTopOil = parseFloat(params.get("topOil")) || 52.0;
@@ -338,7 +425,7 @@
     scene.background = new THREE.Color(0x0b1120);
 
     const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(4.6, 3.3, 5.4);
+    camera.position.set(4.8, 3.4, 5.6);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -353,11 +440,11 @@
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.target.set(0, 1.45, 0);
+    controls.target.set(0.15, 1.45, 0);
     controls.minDistance = 2.5;
     controls.maxDistance = 14;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.8;
+    controls.autoRotate = false;
+    controls.autoRotateSpeed = 0.7;
 
     // Studio Lighting
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.85);
@@ -396,7 +483,7 @@
     shadowPlane.receiveShadow = true;
     scene.add(shadowPlane);
 
-    // Materials (Cream/Beige-Grey Industrial Enamel + Porcelain + Metal)
+    // Materials
     const tankPaintMat = new THREE.MeshStandardMaterial({
       color: 0xd8d7cd,
       roughness: 0.42,
@@ -437,6 +524,12 @@
       color: 0xc9a24b,
       roughness: 0.32,
       metalness: 0.8
+    });
+
+    const sensorHeadMat = new THREE.MeshStandardMaterial({
+      color: 0x0284c7,
+      roughness: 0.3,
+      metalness: 0.65
     });
 
     // Helper: Create Canvas Nameplate Texture
@@ -481,7 +574,7 @@
       return m;
     }
 
-    // 1. C-Channel Steel Base Skids (2 runners along Z)
+    // 1. C-Channel Steel Base Skids
     [-0.95, 0.95].forEach(xPos => {
       addMesh(new THREE.BoxGeometry(0.18, 0.03, 1.85), baseSteelMat, xPos, 0.015, 0);
       addMesh(new THREE.BoxGeometry(0.18, 0.03, 1.85), baseSteelMat, xPos, 0.165, 0);
@@ -490,8 +583,6 @@
 
     // 2. Recessed Lower Plinth & Drain Valve
     addMesh(new THREE.BoxGeometry(2.55, 0.34, 1.38), tankPaintMat, 0, 0.35, 0);
-
-    // Bottom-Left Oil Drain Valve
     addMesh(new THREE.CylinderGeometry(0.04, 0.04, 0.22, 16), brassMat, -1.36, 0.30, 0.42, 0, 0, Math.PI / 2);
     addMesh(new THREE.TorusGeometry(0.065, 0.014, 10, 20), brassMat, -1.48, 0.30, 0.42, 0, Math.PI / 2, 0);
 
@@ -503,12 +594,11 @@
 
     addMesh(new THREE.BoxGeometry(tankW, tankH, tankD), tankPaintMat, 0, tankCenterY, 0);
 
-    // Top Flange & Cover Plate
     const coverY = 0.52 + tankH + 0.045;
     addMesh(new THREE.BoxGeometry(2.96, 0.05, 1.74), tankPaintMat, 0, coverY - 0.025, 0);
     addMesh(new THREE.BoxGeometry(2.90, 0.04, 1.68), tankPaintMat, 0, coverY + 0.02, 0);
 
-    // Perimeter Bolts along Top Flange
+    // Perimeter Bolts
     const boltGeo = new THREE.CylinderGeometry(0.014, 0.014, 0.03, 6);
     for (let bx = -1.38; bx <= 1.38; bx += 0.172) {
       addMesh(boltGeo, silverMetalMat, bx, coverY + 0.045, 0.81);
@@ -519,7 +609,7 @@
       addMesh(boltGeo, silverMetalMat, -1.42, coverY + 0.045, bz);
     }
 
-    // 4 Lifting Lugs on Top Cover
+    // 4 Lifting Lugs
     [
       [-1.18, 0.66], [1.18, 0.66],
       [-1.18, -0.66], [1.18, -0.66]
@@ -527,13 +617,12 @@
       addMesh(new THREE.TorusGeometry(0.065, 0.018, 10, 20, Math.PI), tankPaintMat, lx, coverY + 0.04, lz);
     });
 
-    // 4. Dense Corrugated Cooling Fins (All 4 Sides) + Corner Protector Columns
+    // 4. Corrugated Cooling Fins (All 4 Sides) + Corner Protector Columns
     const finH = 1.52;
     const finY = tankCenterY + 0.01;
     const finDepth = 0.15;
     const finThick = 0.018;
 
-    // Front & Back Corrugated Fins (22 fins per side with center divider bar)
     const frontFinGeo = new THREE.BoxGeometry(finThick, finH, finDepth);
     for (let i = 0; i < 22; i++) {
       const fx = -1.16 + i * (2.32 / 21);
@@ -541,13 +630,11 @@
       addMesh(frontFinGeo, finPaintMat, fx, finY, tankD / 2 + finDepth / 2);
       addMesh(frontFinGeo, finPaintMat, fx, finY, -(tankD / 2 + finDepth / 2));
     }
-    // Center vertical divider & horizontal tie bars on front/back fins
     addMesh(new THREE.BoxGeometry(0.045, finH + 0.02, finDepth + 0.015), finPaintMat, 0, finY, tankD / 2 + finDepth / 2);
     addMesh(new THREE.BoxGeometry(0.045, finH + 0.02, finDepth + 0.015), finPaintMat, 0, finY, -(tankD / 2 + finDepth / 2));
     addMesh(new THREE.BoxGeometry(2.42, 0.025, finDepth + 0.02), finPaintMat, 0, finY + finH / 2, tankD / 2 + finDepth / 2);
     addMesh(new THREE.BoxGeometry(2.42, 0.025, finDepth + 0.02), finPaintMat, 0, finY - finH / 2, tankD / 2 + finDepth / 2);
 
-    // Left & Right Corrugated Fins (12 fins per side)
     const sideFinGeo = new THREE.BoxGeometry(finDepth, finH, finThick);
     for (let j = 0; j < 12; j++) {
       const fz = -0.56 + j * (1.12 / 11);
@@ -555,16 +642,14 @@
       addMesh(sideFinGeo, finPaintMat, -(tankW / 2 + finDepth / 2), finY, fz);
     }
 
-    // 4 Corner Flat Protector Panels (matching the signature box-corner look)
-    const cornerPos = [
+    [
       [-1.33, 0.78], [1.33, 0.78],
       [-1.33, -0.78], [1.33, -0.78]
-    ];
-    cornerPos.forEach(([cx, cz]) => {
+    ].forEach(([cx, cz]) => {
       addMesh(new THREE.BoxGeometry(0.26, finH + 0.03, 0.24), finPaintMat, cx, finY, cz);
     });
 
-    // 5. Front Nameplates ("1000", "TR-03 / SMART TRANSFORMER", "AMORPHOUS")
+    // 5. Front Nameplates
     const frontZ = tankD / 2 + finDepth + 0.022;
 
     const plate1000Tex = createPlateTexture("#e5e7eb", "#334155", [
@@ -595,45 +680,114 @@
       0, finY - 0.27, frontZ
     );
 
-    // 6. Top Accessories: 3 HV Porcelain Bushings (Front Row)
+    // 6. 3 HV Porcelain Bushings (Front Row)
     const topDeckY = coverY + 0.04;
     [-0.68, 0, 0.68].forEach(bx => {
       const bz = 0.34;
-      // Mounting flange
       addMesh(new THREE.CylinderGeometry(0.11, 0.12, 0.06, 20), tankPaintMat, bx, topDeckY + 0.03, bz);
-      // Central porcelain core
       addMesh(new THREE.CylinderGeometry(0.065, 0.075, 0.56, 20), porcelainMat, bx, topDeckY + 0.34, bz);
-      // 4 Tapered rain sheds
       for (let s = 0; s < 4; s++) {
         const sy = topDeckY + 0.16 + s * 0.115;
         addMesh(new THREE.CylinderGeometry(0.075, 0.145, 0.055, 24), porcelainMat, bx, sy, bz);
       }
-      // Top brass/silver terminal cap & clamp
       addMesh(new THREE.CylinderGeometry(0.045, 0.055, 0.09, 16), silverMetalMat, bx, topDeckY + 0.66, bz);
       addMesh(new THREE.BoxGeometry(0.08, 0.11, 0.06), silverMetalMat, bx, topDeckY + 0.74, bz);
     });
 
-    // 7. 4 LV Bushings with Multi-Hole Busbar Flag Terminals (Back Row)
+    // 7. 4 LV Bushings (Back Row)
     [-0.84, -0.28, 0.28, 0.84].forEach(lx => {
       const lz = -0.34;
       addMesh(new THREE.CylinderGeometry(0.08, 0.09, 0.05, 18), tankPaintMat, lx, topDeckY + 0.025, lz);
       addMesh(new THREE.CylinderGeometry(0.05, 0.06, 0.28, 18), porcelainMat, lx, topDeckY + 0.19, lz);
-      // 2 Sheds
       addMesh(new THREE.CylinderGeometry(0.055, 0.095, 0.04, 20), porcelainMat, lx, topDeckY + 0.14, lz);
       addMesh(new THREE.CylinderGeometry(0.055, 0.095, 0.04, 20), porcelainMat, lx, topDeckY + 0.23, lz);
-      // Tall silver busbar flag terminal
       addMesh(new THREE.CylinderGeometry(0.032, 0.032, 0.12, 14), silverMetalMat, lx, topDeckY + 0.38, lz);
       addMesh(new THREE.BoxGeometry(0.025, 0.34, 0.14), silverMetalMat, lx, topDeckY + 0.56, lz);
     });
 
     // 8. Left Dial Thermometer & Right Oil-Level Standpipe
-    // Dial Thermometer (Left Front)
     addMesh(new THREE.CylinderGeometry(0.022, 0.022, 0.16, 12), silverMetalMat, -1.08, topDeckY + 0.08, 0.42);
     addMesh(new THREE.CylinderGeometry(0.09, 0.09, 0.04, 24), silverMetalMat, -1.08, topDeckY + 0.21, 0.42, Math.PI / 2, 0, 0);
 
-    // Oil-Level Indicator Standpipe (Right)
     addMesh(new THREE.CylinderGeometry(0.042, 0.048, 0.62, 18), tankPaintMat, 1.12, topDeckY + 0.31, 0.15);
     addMesh(new THREE.CylinderGeometry(0.052, 0.052, 0.05, 18), silverMetalMat, 1.12, topDeckY + 0.64, 0.15);
+
+    // 9. PT100 Top Oil Sensor Assembly (On Top Cover Front-Right)
+    const pt100X = 0.92;
+    const pt100Z = 0.56;
+    // Thermowell hex nut boss
+    addMesh(new THREE.CylinderGeometry(0.046, 0.046, 0.05, 6), brassMat, pt100X, topDeckY + 0.025, pt100Z);
+    // Stainless steel immersion stem
+    addMesh(new THREE.CylinderGeometry(0.016, 0.016, 0.14, 16), silverMetalMat, pt100X, topDeckY + 0.11, pt100Z);
+    // Industrial PT100 connection head (blue-anodized aluminum housing)
+    addMesh(new THREE.CylinderGeometry(0.058, 0.058, 0.095, 20), sensorHeadMat, pt100X, topDeckY + 0.21, pt100Z, 0, 0, Math.PI / 2);
+    // Cable gland connector
+    addMesh(new THREE.CylinderGeometry(0.016, 0.022, 0.06, 12), silverMetalMat, pt100X, topDeckY + 0.21, pt100Z + 0.07, Math.PI / 2, 0, 0);
+
+    // 10. Cooling Fin Surface PT100 Probe (On Right-Side Corrugated Fins)
+    const finSensorX = tankW / 2 + finDepth + 0.015;
+    const finSensorY = finY + 0.10;
+    const finSensorZ = 0.32;
+    addMesh(new THREE.BoxGeometry(0.036, 0.09, 0.055), sensorHeadMat, finSensorX, finSensorY, finSensorZ);
+    addMesh(new THREE.CylinderGeometry(0.012, 0.012, 0.06, 10), silverMetalMat, finSensorX + 0.01, finSensorY + 0.06, finSensorZ);
+
+    // 3D Anchor Points for Callout Pointers
+    const topOilAnchor3D = new THREE.Vector3(pt100X, topDeckY + 0.22, pt100Z);
+    const finAnchor3D = new THREE.Vector3(finSensorX + 0.01, finSensorY, finSensorZ);
+
+    // Callout DOM Elements
+    const dotTopOil = document.getElementById("dot-top-oil");
+    const dotTopOilRing = document.getElementById("dot-top-oil-ring");
+    const lineTopOil = document.getElementById("line-top-oil");
+    const tagTopOil = document.getElementById("tag-top-oil");
+    const calloutValTopOil = document.getElementById("callout-val-top-oil");
+
+    const dotFin = document.getElementById("dot-fin");
+    const dotFinRing = document.getElementById("dot-fin-ring");
+    const lineFin = document.getElementById("line-fin");
+    const tagFin = document.getElementById("tag-fin");
+    const calloutValFin = document.getElementById("callout-val-fin");
+
+    function updateCallouts() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      function projectPoint(vec3, offsetX, offsetY, dotEl, ringEl, lineEl, tagEl) {
+        const p = vec3.clone().project(camera);
+        if (p.z > 1) {
+          tagEl.style.display = "none";
+          dotEl.style.display = "none";
+          ringEl.style.display = "none";
+          lineEl.style.display = "none";
+          return;
+        }
+        tagEl.style.display = "block";
+        dotEl.style.display = "block";
+        ringEl.style.display = "block";
+        lineEl.style.display = "block";
+
+        const ax = (p.x * 0.5 + 0.5) * w;
+        const ay = (-p.y * 0.5 + 0.5) * h;
+
+        const dir = offsetX >= 0 ? 1 : -1;
+        const elbowX = ax + dir * 44;
+        const elbowY = ay + offsetY;
+        const endX = ax + offsetX;
+        const endY = elbowY;
+
+        dotEl.setAttribute("cx", ax.toFixed(1));
+        dotEl.setAttribute("cy", ay.toFixed(1));
+        ringEl.setAttribute("cx", ax.toFixed(1));
+        ringEl.setAttribute("cy", ay.toFixed(1));
+        lineEl.setAttribute("points", `${ax.toFixed(1)},${ay.toFixed(1)} ${elbowX.toFixed(1)},${elbowY.toFixed(1)} ${endX.toFixed(1)},${endY.toFixed(1)}`);
+
+        tagEl.style.left = `${endX.toFixed(1)}px`;
+        tagEl.style.top = `${endY.toFixed(1)}px`;
+      }
+
+      projectPoint(topOilAnchor3D, 95, -72, dotTopOil, dotTopOilRing, lineTopOil, tagTopOil);
+      projectPoint(finAnchor3D, 105, 32, dotFin, dotFinRing, lineFin, tagFin);
+    }
 
     // Thermal Telemetry Update Logic
     const sliderTopOil = document.getElementById("slider-top-oil");
@@ -652,6 +806,12 @@
       return { color: col, intensity: 0.15 + ratio * 0.55 };
     }
 
+    function getLevelColor(temp, warnT, critT) {
+      if (temp >= critT) return "#ef4444";
+      if (temp >= warnT) return "#f59e0b";
+      return "#38bdf8";
+    }
+
     window.updateTransformerTelemetry = function(topOilTemp, finTemp) {
       const tOil = Number(topOilTemp);
       const tFin = Number(finTemp);
@@ -664,6 +824,23 @@
       hudTopOil.textContent = `${tOil.toFixed(1)}°C`;
       hudFinTemp.textContent = `${tFin.toFixed(1)}°C`;
 
+      // Update 3D Callout Values & Colors
+      calloutValTopOil.textContent = `${tOil.toFixed(1)}°C`;
+      const oilCol = getLevelColor(tOil, 65, 85);
+      tagTopOil.style.borderColor = oilCol;
+      calloutValTopOil.style.color = oilCol;
+      dotTopOil.setAttribute("fill", oilCol);
+      dotTopOilRing.setAttribute("stroke", oilCol);
+      lineTopOil.setAttribute("stroke", oilCol);
+
+      calloutValFin.textContent = `${tFin.toFixed(1)}°C`;
+      const finCol = getLevelColor(tFin, 60, 75);
+      tagFin.style.borderColor = finCol;
+      calloutValFin.style.color = finCol;
+      dotFin.setAttribute("fill", finCol);
+      dotFinRing.setAttribute("stroke", finCol);
+      lineFin.setAttribute("stroke", finCol);
+
       // Update 3D Tank & Fin Emissive Heat Glow
       const oilGlow = computeThermalGlow(tOil, 65, 95);
       tankPaintMat.emissive.set(oilGlow.color);
@@ -673,7 +850,7 @@
       finPaintMat.emissive.set(finGlow.color);
       finPaintMat.emissiveIntensity = finGlow.intensity;
 
-      // Update Status Badge
+      // Update HUD Status Badge
       if (tOil >= 85 || tFin >= 75) {
         statusBadge.textContent = "CRITICAL";
         statusBadge.style.color = "#ef4444";
@@ -706,7 +883,6 @@
       window.updateTransformerTelemetry(sliderTopOil.value, sliderFinTemp.value);
     });
 
-    // Listen to postMessage from parent Dashboard if embedded in iframe
     window.addEventListener("message", (event) => {
       if (event.data && typeof event.data.topOilTemp === "number") {
         window.updateTransformerTelemetry(
@@ -723,8 +899,8 @@
     });
 
     document.getElementById("reset-view-btn").addEventListener("click", () => {
-      camera.position.set(4.6, 3.3, 5.4);
-      controls.target.set(0, 1.45, 0);
+      camera.position.set(4.8, 3.4, 5.6);
+      controls.target.set(0.15, 1.45, 0);
       controls.update();
     });
 
@@ -732,6 +908,14 @@
     autoRotateBtn.addEventListener("click", () => {
       controls.autoRotate = !controls.autoRotate;
       autoRotateBtn.textContent = controls.autoRotate ? "Auto: ON" : "Auto: OFF";
+    });
+
+    const calloutLayer = document.getElementById("callout-layer");
+    const labelsBtn = document.getElementById("labels-btn");
+    labelsBtn.addEventListener("click", () => {
+      calloutLayer.classList.toggle("hidden");
+      const isHidden = calloutLayer.classList.contains("hidden");
+      labelsBtn.textContent = isHidden ? "Labels: OFF" : "Labels: ON";
     });
 
     const themeBtn = document.getElementById("theme-btn");
@@ -752,11 +936,10 @@
       setTheme(isLight ? "dark" : "light");
     });
 
-    // Initialize state
+    // Initialize
     setTheme(initTheme);
     window.updateTransformerTelemetry(initTopOil, initFinTemp);
 
-    // Resize & Render Loop
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
@@ -766,6 +949,7 @@
     function animate() {
       requestAnimationFrame(animate);
       controls.update();
+      updateCallouts();
       renderer.render(scene, camera);
     }
     animate();
