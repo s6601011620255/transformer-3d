@@ -405,9 +405,10 @@
     </div>
   </div>
 
-  <!-- Three.js r128 & OrbitControls -->
+  <!-- Three.js r128, OrbitControls & Supabase JS SDK -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
     // Parse URL Parameters (e.g., ?unit=TR-03&theme=dark)
@@ -936,24 +937,19 @@
     // Supabase Realtime & Live Sync Integration
     // ==========================================
     const SUPABASE_URL = "https://msgktvvcvyxlvugdlerj.supabase.co";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zZ2t0dnZjdnl4bHZ1Z2RsZXJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUzNDg3NjgsImV4cCI6MjExMDkyNDc2OH0.wdO79uqt_ZqOyRL9HmJyT6zD3uII_NYszgQHkM70dYo";
+    const SUPABASE_KEY = "sb_publishable_0UsFEE5poDLA8iXpAVV_hg_0RnvD5-q";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     async function fetchLatestFromSupabase() {
       try {
-        const url =
-          `${SUPABASE_URL}/rest/v1/transformer_pinn_results` +
-          `?transformer_id=eq.${encodeURIComponent(unitName)}` +
-          `&select=top_oil_temp,ambient_temp,ai_status,recorded_at` +
-          `&order=recorded_at.desc&limit=1`;
+        const { data: rows, error } = await sb
+          .from("transformer_pinn_results")
+          .select("top_oil_temp, ambient_temp, ai_status, recorded_at")
+          .eq("transformer_id", unitName)
+          .order("recorded_at", { ascending: false })
+          .limit(1);
 
-        const res = await fetch(url, {
-          headers: {
-            apikey: SUPABASE_KEY
-          }
-        });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const rows = await res.json();
+        if (error) throw error;
 
         if (rows && rows.length > 0) {
           const latest = rows[0];
@@ -963,6 +959,8 @@
 
           window.updateTransformerTelemetry(topOil, finTemp);
           console.log(`[Live Sync] ${unitName} | TopOil: ${topOil.toFixed(1)}°C | Fin: ${finTemp.toFixed(1)}°C | At: ${latest.recorded_at}`);
+        } else {
+          console.warn(`[Live Sync] เชื่อมต่อสำเร็จ แต่ไม่พบข้อมูลของ ${unitName} (ตรวจสอบสิทธิ์ RLS ใน Supabase)`);
         }
       } catch (err) {
         console.error("[Supabase Sync Error]:", err);
