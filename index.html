@@ -410,7 +410,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
   <script>
-    // Parse URL Parameters (e.g., ?unit=TR-03&topOil=64&fin=55&theme=dark)
+    // Parse URL Parameters (e.g., ?unit=TR-03&theme=dark)
     const params = new URLSearchParams(window.location.search);
     const unitName = params.get("unit") || "TR-03";
     const initTopOil = parseFloat(params.get("topOil")) || 52.0;
@@ -715,13 +715,9 @@
     // 9. PT100 Top Oil Sensor Assembly (On Top Cover Front-Right)
     const pt100X = 0.92;
     const pt100Z = 0.56;
-    // Thermowell hex nut boss
     addMesh(new THREE.CylinderGeometry(0.046, 0.046, 0.05, 6), brassMat, pt100X, topDeckY + 0.025, pt100Z);
-    // Stainless steel immersion stem
     addMesh(new THREE.CylinderGeometry(0.016, 0.016, 0.14, 16), silverMetalMat, pt100X, topDeckY + 0.11, pt100Z);
-    // Industrial PT100 connection head (blue-anodized aluminum housing)
     addMesh(new THREE.CylinderGeometry(0.058, 0.058, 0.095, 20), sensorHeadMat, pt100X, topDeckY + 0.21, pt100Z, 0, 0, Math.PI / 2);
-    // Cable gland connector
     addMesh(new THREE.CylinderGeometry(0.016, 0.022, 0.06, 12), silverMetalMat, pt100X, topDeckY + 0.21, pt100Z + 0.07, Math.PI / 2, 0, 0);
 
     // 10. Cooling Fin Surface PT100 Probe (On Right-Side Corrugated Fins)
@@ -936,9 +932,50 @@
       setTheme(isLight ? "dark" : "light");
     });
 
+    // ==========================================
+    // Supabase Realtime & Live Sync Integration
+    // ==========================================
+    const SUPABASE_URL = "https://msgktvvcvyxlvugdlerj.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_0UsFEE5poDLA8iXpAVV_hg_0RnvD5-q";
+
+    async function fetchLatestFromSupabase() {
+      try {
+        const url =
+          `${SUPABASE_URL}/rest/v1/transformer_pinn_results` +
+          `?transformer_id=eq.${encodeURIComponent(unitName)}` +
+          `&select=top_oil_temp,ambient_temp,ai_status,recorded_at` +
+          `&order=recorded_at.desc&limit=1`;
+
+        const res = await fetch(url, {
+          headers: {
+            apikey: SUPABASE_KEY
+          }
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const rows = await res.json();
+
+        if (rows && rows.length > 0) {
+          const latest = rows[0];
+          const topOil = Number(latest.top_oil_temp);
+          const ambient = Number(latest.ambient_temp || 31.0);
+          const finTemp = topOil - 0.28 * (topOil - ambient);
+
+          window.updateTransformerTelemetry(topOil, finTemp);
+          console.log(`[Live Sync] ${unitName} | TopOil: ${topOil.toFixed(1)}°C | Fin: ${finTemp.toFixed(1)}°C | At: ${latest.recorded_at}`);
+        }
+      } catch (err) {
+        console.error("[Supabase Sync Error]:", err);
+      }
+    }
+
     // Initialize
     setTheme(initTheme);
     window.updateTransformerTelemetry(initTopOil, initFinTemp);
+
+    // ดึงข้อมูลทันทีที่เปิดหน้าเว็บ และอัปเดตซ้ำทุกๆ 5 วินาที
+    fetchLatestFromSupabase();
+    setInterval(fetchLatestFromSupabase, 5000);
 
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
