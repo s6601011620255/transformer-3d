@@ -756,7 +756,7 @@
 
       // Update 3D Callout Values & Colors
       calloutValTopOil.textContent = `${tOil.toFixed(1)}°C`;
-      const oilCol = getLevelColor(tOil, 65, 85);
+      const oilCol = getLevelColor(tOil, 80, 90);
       tagTopOil.style.borderColor = oilCol;
       calloutValTopOil.style.color = oilCol;
       dotTopOil.setAttribute("fill", oilCol);
@@ -764,7 +764,7 @@
       lineTopOil.setAttribute("stroke", oilCol);
 
       calloutValFin.textContent = `${tFin.toFixed(1)}°C`;
-      const finCol = getLevelColor(tFin, 60, 75);
+      const finCol = getLevelColor(tFin, 75, 85);
       tagFin.style.borderColor = finCol;
       calloutValFin.style.color = finCol;
       dotFin.setAttribute("fill", finCol);
@@ -772,23 +772,23 @@
       lineFin.setAttribute("stroke", finCol);
 
       // Update 3D Tank & Fin Emissive Heat Glow
-      const oilGlow = computeThermalGlow(tOil, 65, 95);
+      const oilGlow = computeThermalGlow(tOil, 80, 90);
       tankPaintMat.emissive.set(oilGlow.color);
       tankPaintMat.emissiveIntensity = oilGlow.intensity;
 
-      const finGlow = computeThermalGlow(tFin, 58, 85);
+      const finGlow = computeThermalGlow(tFin, 78, 88);
       finPaintMat.emissive.set(finGlow.color);
       finPaintMat.emissiveIntensity = finGlow.intensity;
 
       // Update HUD Status Badge
-      if (tOil >= 85 || tFin >= 75) {
+      if (tOil >= 90 || tFin >= 85) {
         statusBadge.textContent = "CRITICAL";
         statusBadge.style.color = "#ef4444";
         statusBadge.style.background = "rgba(239, 68, 68, 0.16)";
         statusBadge.style.borderColor = "rgba(239, 68, 68, 0.4)";
         statusDot.style.background = "#ef4444";
         statusDot.style.boxShadow = "0 0 10px #ef4444";
-      } else if (tOil >= 65 || tFin >= 60) {
+      } else if (tOil >= 80 || tFin >= 75) {
         statusBadge.textContent = "WARNING";
         statusBadge.style.color = "#f59e0b";
         statusBadge.style.background = "rgba(245, 158, 11, 0.16)";
